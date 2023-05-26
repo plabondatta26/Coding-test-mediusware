@@ -1,4 +1,5 @@
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.views import generic
 
 from product.models import Variant, Product, ProductVariantPrice, ProductVariant
@@ -21,7 +22,42 @@ class ProductListView(generic.ListView):
 
     def get_queryset(self):
         queryset = Product.objects.all()
-        return queryset
+        # Retrieve filter parameters from the request
+        title = self.request.GET.get('title')
+        price_from = self.request.GET.get('price_from')
+        price_to = self.request.GET.get('price_to')
+        color = self.request.GET.get('color')
+        date = self.request.GET.get('date')
+        # Apply filters to the queryset
+        if title:
+            queryset = queryset.filter(title__icontains=title)
+
+        # filter with price
+        if price_from and price_to:
+            product_variant_qs = ProductVariantPrice.objects.filter(price__range=[price_from, price_to]).values('product')
+            product_ids = []
+            for variant_ids in product_variant_qs:
+                if not variant_ids["product"] in product_ids:
+                    product_ids.append(variant_ids["product"])
+            queryset = queryset.filter(id__in=product_ids)
+
+        # filter with color
+        if color:
+            product_variant_qs = ProductVariantPrice.objects.filter(
+                Q(product_variant_one__variant_title=color)|
+                Q(product_variant_two__variant_title=color)|
+                Q(product_variant_three__variant_title=color)
+            ).values(
+                'product')
+            product_ids = []
+            for variant_ids in product_variant_qs:
+                if not variant_ids["product"] in product_ids:
+                    product_ids.append(variant_ids["product"])
+            queryset = queryset.filter(id__in=product_ids)
+        if date:
+            queryset = queryset.filter(created_at__date=date)
+
+        return queryset.distinct()
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -65,5 +101,3 @@ class ProductListView(generic.ListView):
         if end_index > paginator.count:
             end_index = paginator.count
         return f"Showing { start_index } to { end_index } out of {paginator.count }"
-
-        return f"Showing {start_index} to {end_index} out of {total_count}"
