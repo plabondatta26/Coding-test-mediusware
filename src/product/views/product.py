@@ -17,7 +17,7 @@ class CreateProductView(generic.TemplateView):
 
 class ProductListView(generic.ListView):
     template_name = 'products/list.html'
-    paginate_by = 10  # Set the number of products to display per page
+    paginate_by = 2  # Set the number of products to display per page
 
     def get_queryset(self):
         queryset = Product.objects.all()
@@ -54,15 +54,16 @@ class ProductListView(generic.ListView):
         paginator = Paginator(context["product_list"], self.paginate_by)
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
-
         context["products"] = page_obj
         context["product_data"] = product_list_data
-        context["pagination_details"] = self.get_pagination_details(page_obj)
+        context["pagination_details"] = self.get_pagination_details(page_obj, paginator)
         return context
 
-    def get_pagination_details(self, page_obj):
-        start_index = (page_obj.number - 1) * self.paginate_by + 1
-        end_index = start_index + len(page_obj) - 1
-        total_count = page_obj.paginator.count
+    def get_pagination_details(self, page_obj, paginator):
+        start_index = (page_obj.number - 1) * paginator.per_page + 1
+        end_index = start_index + paginator.per_page - 1
+        if end_index > paginator.count:
+            end_index = paginator.count
+        return f"Showing { start_index } to { end_index } out of {paginator.count }"
 
         return f"Showing {start_index} to {end_index} out of {total_count}"

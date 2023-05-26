@@ -157,8 +157,26 @@
                 <div class="col-md-6">
                     <p>{{pagination_details}}</p>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-3">
 
+                    <div class="pagination">
+                        <span class="step-links">
+                            {% if page_obj.has_previous %}
+                                <a href="?page=1" class="btn pagination_btn">&#8826;</a>
+                                <a href="?page={{ page_obj.previous_page_number }}" class="btn pagination_btn">{{ page_obj.previous_page_number }}</a>
+                            {% endif %}
+                    
+                            <a href="?page={{ page_obj.number }}" class="btn btn-primary pagination_btn active">{{ page_obj.number }}</a>
+                    
+                            {% if page_obj.has_next %}
+                                <a href="?page={{ page_obj.next_page_number }}" class="btn btn-light pagination_btn">{{ page_obj.next_page_number }}</a>
+                                {% if page_obj.next_page_number < page_obj.paginator.num_pages%}
+                                <a href="?page={{ page_obj.next_page_number|add:1 }}" class="btn btn-light pagination_btn">{{ page_obj.next_page_number|add:1 }}</a>
+                                {% endif %}
+                                <a href="?page={{ page_obj.paginator.num_pages }}" class="btn pagination_btn">&#8827;</a>
+                            {% endif %}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
