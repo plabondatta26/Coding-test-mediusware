@@ -55,7 +55,45 @@
                     </thead>
 
                     <tbody>
-                    <tr>
+                        {% for product in product_data %}
+                        <tr>
+                            <td>{{product.product_id}}</td>
+                            <td>{{product.product_title}} <br> Created at : {{product.product_created_at|date:"d-M-Y"}}</td>
+                            <td>{{product.product_description}}</td>
+                            <td>
+                                <dl class="row mb-0" style="height: 80px; overflow: hidden" id="variant{{ product.product_id }}">
+                                    {% for variant in product.variant_data %}
+                                    <dt class="col-sm-3 pb-0">
+                                        
+                                        {{variant.product_variant_one}}
+                                        
+                                        {% if variant.product_variant_two%}
+                                        / {{variant.product_variant_two}}
+                                        {% endif %}
+                                        
+                                        {% if variant.product_variant_three%}
+                                        / {{variant.product_variant_three}}
+                                        {% endif %}
+                                    </dt>
+                                    <dd class="col-sm-9">
+                                        <dl class="row mb-0">
+                                            <dd class="col-sm-4 pb-0">Price : {{variant.price}}.</dd>
+                                            <dd class="col-sm-8 pb-0">InStock : {{variant.stock}}.</dd>
+                                        </dl>
+                                    </dd>
+                                    {% endfor %}
+                                </dl>
+                                <button onclick="$('#variant{{ product.product_id }}').toggleClass('h-auto')" class="btn btn-sm btn-link">Show more
+                                </button>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="" class="btn btn-success">Edit</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    <!-- <tr>
                         <td>1</td>
                         <td>T-Shirt <br> Created at : 25-Aug-2020</td>
                         <td>Quality product in low cost</td>
@@ -106,7 +144,7 @@
                                 <a href="" class="btn btn-success">Edit</a>
                             </div>
                         </td>
-                    </tr>
+                    </tr> -->
                     </tbody>
 
                 </table>
@@ -117,7 +155,7 @@
         <div class="card-footer">
             <div class="row justify-content-between">
                 <div class="col-md-6">
-                    <p>Showing 1 to 10 out of 100</p>
+                    <p>{{pagination_details}}</p>
                 </div>
                 <div class="col-md-2">
 
