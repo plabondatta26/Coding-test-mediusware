@@ -1,12 +1,25 @@
-import React, {useState} from 'react';
+import React, {useEffect,useState} from 'react';
 import TagsInput from 'react-tagsinput';
 import 'react-tagsinput/react-tagsinput.css';
 import Dropzone from 'react-dropzone'
+import Axios from 'axios';
 
 
 const CreateProduct = (props) => {
 
     const [productVariantPrices, setProductVariantPrices] = useState([])
+    const [productData, setProductData] = useState({
+        title:"",
+        sku:"",
+        description:"",
+        file_path:""
+    })
+
+    const [variants, setVariants] = useState([])
+
+    const handleData =(key, value) =>{
+        setProductData({...productData, [key]:value})
+    }
 
     const [productVariants, setProductVariant] = useState([
         {
@@ -28,7 +41,8 @@ const CreateProduct = (props) => {
 
     // handle input change on tag input
     const handleInputTagOnChange = (value, index) => {
-        let product_variants = [...productVariants]
+        console.log("ljfjdnf")
+        let product_variants = JSON.parse(JSON.stringify(productVariants))
         product_variants[index].tags = value
         setProductVariant(product_variants)
 
@@ -75,10 +89,32 @@ const CreateProduct = (props) => {
     }
 
     // Save product
-    let saveProduct = (event) => {
-        event.preventDefault();
-        // TODO : write your code here to save the product
-    }
+    let saveProduct = () => {
+        
+        const fromData = new FormData()
+        Object.keys(productData).map(key =>{
+            fromData.append(key, productData[key]);
+        })
+
+        fromData.append("variants", JSON.stringify(productVariants))
+        Axios.post('/product/create/', fromData,{
+            
+                headers: {
+                  'Content-Type': 'multipart/form-data'
+                }
+        }).then(response => {
+            alert(response.data)
+            console.log(response.status)
+        })
+        .catch(err => {
+            alert(err.response.data)
+        });
+    };
+    useEffect(() => {
+        Axios.defaults.xsrfHeaderName = "X-CSRFTOKEN";
+        Axios.defaults.xsrfCookieName = "csrftoken";
+      }, []);
+    
 
 
     return (
@@ -90,15 +126,15 @@ const CreateProduct = (props) => {
                             <div className="card-body">
                                 <div className="form-group">
                                     <label htmlFor="">Product Name</label>
-                                    <input type="text" placeholder="Product Name" className="form-control"/>
+                                    <input type="text" placeholder="Product Name" className="form-control" onChange={(e)=>handleData("title", e.target.value)}/>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="">Product SKU</label>
-                                    <input type="text" placeholder="Product Name" className="form-control"/>
+                                    <input type="text" placeholder="Product Name" className="form-control" onChange={(e)=>handleData("sku", e.target.value)}/>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="">Description</label>
-                                    <textarea id="" cols="30" rows="4" className="form-control"></textarea>
+                                    <textarea id="" cols="30" rows="4" className="form-control" onChange={(e)=>handleData("description", e.target.value)}></textarea>
                                 </div>
                             </div>
                         </div>
@@ -109,7 +145,7 @@ const CreateProduct = (props) => {
                                 <h6 className="m-0 font-weight-bold text-primary">Media</h6>
                             </div>
                             <div className="card-body border">
-                                <Dropzone onDrop={acceptedFiles => console.log(acceptedFiles)}>
+                                <Dropzone onDrop={acceptedFiles => handleData("file_path", acceptedFiles[0])}>
                                     {({getRootProps, getInputProps}) => (
                                         <section>
                                             <div {...getRootProps()}>
@@ -142,7 +178,7 @@ const CreateProduct = (props) => {
                                                             {
                                                                 JSON.parse(props.variants.replaceAll("'", '"')).map((variant, index) => {
                                                                     return (<option key={index}
-                                                                                    value={variant.id}>{variant.title}</option>)
+                                                                                    value={variant}>{variant.title}</option>)
                                                                 })
                                                             }
 
