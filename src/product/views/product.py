@@ -92,14 +92,12 @@ class UpdateProductView(generic.UpdateView):
         file_path = request.FILES.getlist("file_path")
         sku = request.POST.get("sku", None)
         variants = request.POST.get("variants", [])
-        product_price_id = request.data.get("product_price_id", None)
 
         if Product.objects.filter(~Q(pk=pk), sku=sku).exists():
             return HttpResponseBadRequest("Product SKU already exists")
 
         product_obj = Product.objects.filter(pk=pk).first()
         all_product_variant = list(ProductVariant.objects.filter(product=product_obj).values_list('id', flat=True))
-        variant_list = []
         variants = json.loads(variants) if len(variants) >= 1 else None
 
         product_form = ProductCreateForm(request.POST, instance=product_obj)
@@ -119,6 +117,7 @@ class UpdateProductView(generic.UpdateView):
             if variants:
                 for variant in variants:
                     variant_id = variant["option"]
+                    variant_list = []
                     for tag_name in variant["tags"]:
                         data = dict()
                         data["variant_title"] = tag_name
@@ -132,10 +131,12 @@ class UpdateProductView(generic.UpdateView):
                             if product_variant_form.is_valid():
                                 product_variant_obj = product_variant_form.save()
                                 variant_list.append(product_variant_obj)
+
                         if product_variant_obj.id in all_product_variant:
                             all_product_variant.remove(product_variant_obj.id)
-                    price = request.POST.get("price", None)
-                    stock = request.POST.get("price", None)
+                    price = variant.get("price", None)
+                    stock = variant.get("price", None)
+                    product_price_id = variant.get("product_price_id", None)
 
                     # manage product price data
                     price_data = {
@@ -151,13 +152,13 @@ class UpdateProductView(generic.UpdateView):
                         product_price_form = ProductVariantPriceCreateForm(price_data, instance=product_price_obj)
                     else:
                         product_price_form = ProductVariantPriceCreateForm(price_data)
-                        if product_price_form.is_valid():
-                            product_price_form.save()
-                    # remove not using variants
-                    for variant_id in all_product_variant:
-                        product_variant_obj = ProductVariant.objects.filter(pk=variant_id).first()
-                        if product_variant_obj:
-                            product_variant_obj.delete()
+                    if product_price_form.is_valid():
+                        product_price_form.save()
+                # remove not using variants
+                for variant_id in all_product_variant:
+                    product_variant_obj = ProductVariant.objects.filter(pk=variant_id).first()
+                    if product_variant_obj:
+                        product_variant_obj.delete()
 
             return JsonResponse("Product updated", safe=False)
         else:
