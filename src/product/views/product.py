@@ -124,6 +124,7 @@ class UpdateProductView(generic.TemplateView):
 
 class ProductListView(generic.ListView):
     template_name = 'products/list.html'
+    queryset = Product.objects.all()
     paginate_by = 10  # Set the number of products to display per page
 
     def get_queryset(self):
@@ -136,7 +137,7 @@ class ProductListView(generic.ListView):
         date = self.request.GET.get('date', None)
         # Apply filters to the queryset
         if title:
-            queryset = queryset.filter(title__icontains=title)
+            self.queryset = queryset.filter(title__icontains=title)
 
         # filter with price
         if price_from and price_to:
@@ -146,7 +147,7 @@ class ProductListView(generic.ListView):
             for variant_ids in product_variant_qs:
                 if not variant_ids["product"] in product_ids:
                     product_ids.append(variant_ids["product"])
-            queryset = queryset.filter(id__in=product_ids)
+            self.queryset = queryset.filter(id__in=product_ids)
 
         # filter with color
         if variant:
@@ -160,11 +161,11 @@ class ProductListView(generic.ListView):
             for variant_ids in product_variant_qs:
                 if not variant_ids["product"] in product_ids:
                     product_ids.append(variant_ids["product"])
-            queryset = queryset.filter(id__in=product_ids)
+            self.queryset = queryset.filter(id__in=product_ids)
         if date:
-            queryset = queryset.filter(created_at__date=date)
+            self.queryset = queryset.filter(created_at__date=date)
 
-        return queryset.distinct()
+        return self.queryset.distinct()
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -204,8 +205,11 @@ class ProductListView(generic.ListView):
         return context
 
     def get_pagination_details(self, page_obj, paginator):
-        start_index = (page_obj.number - 1) * paginator.per_page + 1
-        end_index = start_index + paginator.per_page - 1
-        if end_index > paginator.count:
-            end_index = paginator.count
-        return f"Showing {start_index} to {end_index} out of {paginator.count}"
+        current_page = self.request.GET.get('page', 1)
+        start_index = (int(current_page) - 1) * paginator.per_page + 1
+        if paginator.count < 1:
+            start_index = 0
+        end_index = start_index + paginator.object_list.count() - 1
+        if paginator.count < 1:
+            end_index = 0
+        return f"Showing {start_index} to {end_index} out of {self.queryset.count()}"
