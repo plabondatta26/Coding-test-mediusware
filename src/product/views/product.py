@@ -45,7 +45,7 @@ class CreateProductView(generic.TemplateView):
             if variants:
                 for variant in variants:
                     variant_id = variant["option"]
-                    for tag_name in variant:
+                    for tag_name in variant["tags"]:
                         data = dict()
                         data["variant_title"] = tag_name
                         data["variant"] = Variant.objects.filter(pk=variant_id).first()
@@ -57,9 +57,9 @@ class CreateProductView(generic.TemplateView):
 
             price_data = {
                 "product": product_obj,
-                "product_variant_one_id": variant_list[0] if len(variant_list) >= 1 else None,
-                "product_variant_two_id": variant_list[1] if len(variant_list) >= 2 else None,
-                "product_variant_three_id": variant_list[2] if len(variant_list) >= 3 else None,
+                "product_variant_one": variant_list[0] if len(variant_list) >= 1 else None,
+                "product_variant_two": variant_list[1] if len(variant_list) >= 2 else None,
+                "product_variant_three": variant_list[2] if len(variant_list) >= 3 else None,
                 "price": price if price else 0,
                 "stock": stock if stock else 0,
             }
