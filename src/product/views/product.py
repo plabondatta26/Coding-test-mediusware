@@ -24,8 +24,6 @@ class CreateProductView(generic.TemplateView):
 
         if Product.objects.filter(sku=sku).exists():
             return HttpResponseBadRequest("Product SKU already exists")
-
-        variant_list = []
         variants = json.loads(variants) if len(variants) >= 1 else None
 
         product_form = ProductCreateForm(request.POST)
@@ -44,7 +42,10 @@ class CreateProductView(generic.TemplateView):
             # Manage product variants
             if variants:
                 for variant in variants:
+                    variant_list = []
                     variant_id = variant["option"]
+                    price = variant.get("price", None)
+                    stock = variant.get("stock", None)
                     for tag_name in variant["tags"]:
                         data = dict()
                         data["variant_title"] = tag_name
@@ -55,17 +56,17 @@ class CreateProductView(generic.TemplateView):
                             product_variant_obj = product_variant_form.save()
                             variant_list.append(product_variant_obj)
 
-            price_data = {
-                "product": product_obj,
-                "product_variant_one": variant_list[0] if len(variant_list) >= 1 else None,
-                "product_variant_two": variant_list[1] if len(variant_list) >= 2 else None,
-                "product_variant_three": variant_list[2] if len(variant_list) >= 3 else None,
-                "price": price if price else 0,
-                "stock": stock if stock else 0,
-            }
-            product_price_form = ProductVariantPriceCreateForm(price_data)
-            if product_price_form.is_valid():
-                product_price_form.save()
+                    price_data = {
+                        "product": product_obj,
+                        "product_variant_one": variant_list[0] if len(variant_list) >= 1 else None,
+                        "product_variant_two": variant_list[1] if len(variant_list) >= 2 else None,
+                        "product_variant_three": variant_list[2] if len(variant_list) >= 3 else None,
+                        "price": price if price else 0,
+                        "stock": stock if stock else 0,
+                    }
+                    product_price_form = ProductVariantPriceCreateForm(price_data)
+                    if product_price_form.is_valid():
+                        product_price_form.save()
         else:
             return HttpResponseBadRequest("Invalid product data")
         return JsonResponse("Product created", safe=False)
@@ -91,8 +92,6 @@ class UpdateProductView(generic.UpdateView):
         file_path = request.FILES.getlist("file_path")
         sku = request.POST.get("sku", None)
         variants = request.POST.get("variants", [])
-        price = request.POST.get("price", None)
-        stock = request.POST.get("price", None)
         product_price_id = request.data.get("product_price_id", None)
 
         if Product.objects.filter(~Q(pk=pk), sku=sku).exists():
@@ -135,29 +134,30 @@ class UpdateProductView(generic.UpdateView):
                                 variant_list.append(product_variant_obj)
                         if product_variant_obj.id in all_product_variant:
                             all_product_variant.remove(product_variant_obj.id)
+                    price = request.POST.get("price", None)
+                    stock = request.POST.get("price", None)
 
-                # remove not using variants
-                for variant_id in all_product_variant:
-                    product_variant_obj = ProductVariant.objects.filter(pk=variant_id).first()
-                    if product_variant_obj:
-                        product_variant_obj.delete()
-
-            # manage product price data
-            price_data = {
-                "product": product_obj,
-                "product_variant_one": variant_list[0] if len(variant_list) >= 1 else None,
-                "product_variant_two": variant_list[1] if len(variant_list) >= 2 else None,
-                "product_variant_three": variant_list[2] if len(variant_list) >= 3 else None,
-                "price": price if price else 0,
-                "stock": stock if stock else 0,
-            }
-            if product_price_id:
-                product_price_obj = ProductVariantPrice.objects.filter(pk=product_price_id).first()
-                product_price_form = ProductVariantPriceCreateForm(price_data, instance=product_price_obj)
-            else:
-                product_price_form = ProductVariantPriceCreateForm(price_data)
-            if product_price_form.is_valid():
-                product_price_form.save()
+                    # manage product price data
+                    price_data = {
+                        "product": product_obj,
+                        "product_variant_one": variant_list[0] if len(variant_list) >= 1 else None,
+                        "product_variant_two": variant_list[1] if len(variant_list) >= 2 else None,
+                        "product_variant_three": variant_list[2] if len(variant_list) >= 3 else None,
+                        "price": price if price else 0,
+                        "stock": stock if stock else 0,
+                    }
+                    if product_price_id:
+                        product_price_obj = ProductVariantPrice.objects.filter(pk=product_price_id).first()
+                        product_price_form = ProductVariantPriceCreateForm(price_data, instance=product_price_obj)
+                    else:
+                        product_price_form = ProductVariantPriceCreateForm(price_data)
+                        if product_price_form.is_valid():
+                            product_price_form.save()
+                    # remove not using variants
+                    for variant_id in all_product_variant:
+                        product_variant_obj = ProductVariant.objects.filter(pk=variant_id).first()
+                        if product_variant_obj:
+                            product_variant_obj.delete()
 
             return JsonResponse("Product updated", safe=False)
         else:
