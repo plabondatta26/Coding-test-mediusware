@@ -78,13 +78,92 @@ class CreateProductView(generic.TemplateView):
         return context
 
 
-class UpdateProductView(generic.TemplateView):
-    template_name = 'products/create.html'
+class UpdateProductView(generic.UpdateView):
+    template_name = 'products/update.html'
+    model = Product
+    fields = ["title", "sku", "description"]
 
     def post(self, request, *args, **kwargs):
-        pass
+        pk = kwargs.get("pk", None)
+        if not pk:
+            return HttpResponseBadRequest("Invalid input")
 
-    def get_queryset(self):
+        file_path = request.FILES.getlist("file_path")
+        sku = request.POST.get("sku", None)
+        variants = request.POST.get("variants", [])
+        price = request.POST.get("price", None)
+        stock = request.POST.get("price", None)
+        product_price_id = request.data.get("product_price_id", None)
+
+        if Product.objects.filter(~Q(pk=pk), sku=sku).exists():
+            return HttpResponseBadRequest("Product SKU already exists")
+
+        product_obj = Product.objects.filter(pk=pk).first()
+        all_product_variant = list(ProductVariant.objects.filter(product=product_obj).values_list('id', flat=True))
+        variant_list = []
+        variants = json.loads(variants) if len(variants) >= 1 else None
+
+        product_form = ProductCreateForm(request.POST, instance=product_obj)
+        if product_form.is_valid():
+            product_obj = product_form.save()
+
+            # Manage product images
+            for file in file_path:
+                data = dict()
+                data["file_path"] = file
+                data["product"] = product_obj
+                product_image_form = ProductImageCreateForm(data)
+                if product_image_form.is_valid():
+                    product_image_form.save()
+
+            # Manage product variants
+            if variants:
+                for variant in variants:
+                    variant_id = variant["option"]
+                    for tag_name in variant["tags"]:
+                        data = dict()
+                        data["variant_title"] = tag_name
+                        data["variant"] = Variant.objects.filter(pk=variant_id).first()
+                        data["product"] = product_obj
+                        product_variant_obj = ProductVariant.objects.filter(**data).first()
+                        if product_variant_obj:
+                            variant_list.append(product_variant_obj)
+                        else:
+                            product_variant_form = ProductVariantCreateForm(data)
+                            if product_variant_form.is_valid():
+                                product_variant_obj = product_variant_form.save()
+                                variant_list.append(product_variant_obj)
+                        if product_variant_obj.id in all_product_variant:
+                            all_product_variant.remove(product_variant_obj.id)
+
+                # remove not using variants
+                for variant_id in all_product_variant:
+                    product_variant_obj = ProductVariant.objects.filter(pk=variant_id).first()
+                    if product_variant_obj:
+                        product_variant_obj.delete()
+
+            # manage product price data
+            price_data = {
+                "product": product_obj,
+                "product_variant_one": variant_list[0] if len(variant_list) >= 1 else None,
+                "product_variant_two": variant_list[1] if len(variant_list) >= 2 else None,
+                "product_variant_three": variant_list[2] if len(variant_list) >= 3 else None,
+                "price": price if price else 0,
+                "stock": stock if stock else 0,
+            }
+            if product_price_id:
+                product_price_obj = ProductVariantPrice.objects.filter(pk=product_price_id).first()
+                product_price_form = ProductVariantPriceCreateForm(price_data, instance=product_price_obj)
+            else:
+                product_price_form = ProductVariantPriceCreateForm(price_data)
+            if product_price_form.is_valid():
+                product_price_form.save()
+
+            return JsonResponse("Product updated", safe=False)
+        else:
+            return HttpResponseBadRequest("Invalid product data")
+
+    def get_object(self):
         pk = self.kwargs.get("pk", None)
         if not pk:
             pass
