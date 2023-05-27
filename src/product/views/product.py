@@ -167,37 +167,41 @@ class UpdateProductView(generic.UpdateView):
         pk = self.kwargs.get("pk", None)
         if not pk:
             pass
-        product_obj = Product.objects.filter(pk=pk).first()
-        if not product_obj:
-            pass
+        product_obj = Product.objects.get(pk=pk)
         return product_obj
 
-    def get_context_data(self, *, object_list=None, **kwargs):
+    def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        product_obj = context["product_obj"]
-        product_variant_qs = ProductVariantPrice.objects.filter(product=product_obj)
+        product_price_variant_qs = ProductVariantPrice.objects.filter(product=context["object"])
         variant_list = []
-        for product_variant in product_variant_qs:
+        for product_price in product_price_variant_qs:
             variant_data = {
-                "id": product_variant.id,
-                "product_variant_one": product_variant.product_variant_one.variant_title
-                if product_variant.product_variant_one else "",
-                "product_variant_two": product_variant.product_variant_two.variant_title
-                if product_variant.product_variant_two else "",
-                "product_variant_three": product_variant.product_variant_three.variant_title
-                if product_variant.product_variant_three else "",
-                "price": product_variant.price,
-                "stock": product_variant.stock,
+                "product_price_id": product_price.id,
+                "product_variant_one": {
+                    "id": product_price.product_variant_one.id,
+                    "variant_title": product_price.product_variant_one.variant_title
+                } if product_price.product_variant_one else "",
+
+                "product_variant_two": {
+                    "id": product_price.product_variant_two.id,
+                    "variant_title": product_price.product_variant_two.variant_title
+                } if product_price.product_variant_two else "",
+                "product_variant_three": {
+                    "id": product_price.product_variant_three.id,
+                    "variant_title": product_price.product_variant_three.variant_title
+                } if product_price.product_variant_three else "",
+                "price": product_price.price,
+                "stock": product_price.stock,
             }
             variant_list.append(variant_data)
         product_data = {
-            "product_id": product_obj.id,
-            "product_title": product_obj.title,
-            "product_created_at": product_obj.created_at,
-            "product_description": product_obj.description,
+            "product_id": context["object"].id,
+            "product_title": context["object"].title,
+            "product_created_at": context["object"].created_at,
+            "product_description": context["object"].description,
             "variant_data": variant_list
         }
-        context["product_obj"] = product_data
+        context["product"] = product_data
         return context
 
 
