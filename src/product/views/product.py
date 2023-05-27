@@ -19,8 +19,6 @@ class CreateProductView(generic.TemplateView):
         file_path = request.FILES.getlist("file_path")
         sku = request.POST.get("sku", None)
         variants = request.POST.get("variants", [])
-        price = request.POST.get("price", None)
-        stock = request.POST.get("price", None)
 
         if Product.objects.filter(sku=sku).exists():
             return HttpResponseBadRequest("Product SKU already exists")
