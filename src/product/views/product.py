@@ -1,12 +1,74 @@
+import json
+
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.views import generic
 
 from product.models import Variant, Product, ProductVariantPrice, ProductVariant
+from product.forms import ProductCreateForm, ProductImageCreateForm, ProductVariantCreateForm, \
+    ProductVariantPriceCreateForm
 
 
 class CreateProductView(generic.TemplateView):
     template_name = 'products/create.html'
+
+    @transaction.atomic
+    def post(self, request, *args, **kwargs):
+        file_path = request.FILES.getlist("file_path")
+        sku = request.POST.get("sku", None)
+        variants = request.POST.get("variants", [])
+        price = request.POST.get("price", None)
+        stock = request.POST.get("price", None)
+
+        if Product.objects.filter(sku=sku).exists():
+            return HttpResponseBadRequest("Product SKU already exists")
+
+        variant_list = []
+        variants = json.loads(variants) if len(variants) >= 1 else None
+
+        product_form = ProductCreateForm(request.POST)
+        if product_form.is_valid():
+            product_obj = product_form.save()
+
+            # Manage product images
+            for file in file_path:
+                data = dict()
+                data["file_path"] = file
+                data["product"] = product_obj
+                product_image_form = ProductImageCreateForm(data)
+                if product_image_form.is_valid():
+                    product_image_form.save()
+
+            # Manage product variants
+            if variants:
+                for variant in variants:
+                    variant_id = variant["option"]
+                    for tag_name in variant:
+                        data = dict()
+                        data["variant_title"] = tag_name
+                        data["variant"] = Variant.objects.filter(pk=variant_id).first()
+                        data["product"] = product_obj
+                        product_variant_form = ProductVariantCreateForm(data)
+                        if product_variant_form.is_valid():
+                            product_variant_obj = product_variant_form.save()
+                            variant_list.append(product_variant_obj)
+
+            price_data = {
+                "product": product_obj,
+                "product_variant_one_id": variant_list[0] if len(variant_list) >= 1 else None,
+                "product_variant_two_id": variant_list[1] if len(variant_list) >= 2 else None,
+                "product_variant_three_id": variant_list[2] if len(variant_list) >= 3 else None,
+                "price": price if price else 0,
+                "stock": stock if stock else 0,
+            }
+            product_price_form = ProductVariantPriceCreateForm(price_data)
+            if product_price_form.is_valid():
+                product_price_form.save()
+        else:
+            return HttpResponseBadRequest("Invalid product data")
+        return JsonResponse("Product created", safe=False)
 
     def get_context_data(self, **kwargs):
         context = super(CreateProductView, self).get_context_data(**kwargs)
@@ -16,9 +78,53 @@ class CreateProductView(generic.TemplateView):
         return context
 
 
+class UpdateProductView(generic.TemplateView):
+    template_name = 'products/create.html'
+
+    def post(self, request, *args, **kwargs):
+        pass
+
+    def get_queryset(self):
+        pk = self.kwargs.get("pk", None)
+        if not pk:
+            pass
+        product_obj = Product.objects.filter(pk=pk).first()
+        if not product_obj:
+            pass
+        return product_obj
+
+    def get_context_data(self, *, object_list=None, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product_obj = context["product_obj"]
+        product_variant_qs = ProductVariantPrice.objects.filter(product=product_obj)
+        variant_list = []
+        for product_variant in product_variant_qs:
+            variant_data = {
+                "id": product_variant.id,
+                "product_variant_one": product_variant.product_variant_one.variant_title
+                if product_variant.product_variant_one else "",
+                "product_variant_two": product_variant.product_variant_two.variant_title
+                if product_variant.product_variant_two else "",
+                "product_variant_three": product_variant.product_variant_three.variant_title
+                if product_variant.product_variant_three else "",
+                "price": product_variant.price,
+                "stock": product_variant.stock,
+            }
+            variant_list.append(variant_data)
+        product_data = {
+            "product_id": product_obj.id,
+            "product_title": product_obj.title,
+            "product_created_at": product_obj.created_at,
+            "product_description": product_obj.description,
+            "variant_data": variant_list
+        }
+        context["product_obj"] = product_data
+        return context
+
+
 class ProductListView(generic.ListView):
     template_name = 'products/list.html'
-    paginate_by = 2  # Set the number of products to display per page
+    paginate_by = 10  # Set the number of products to display per page
 
     def get_queryset(self):
         queryset = Product.objects.all()
@@ -34,7 +140,8 @@ class ProductListView(generic.ListView):
 
         # filter with price
         if price_from and price_to:
-            product_variant_qs = ProductVariantPrice.objects.filter(price__range=[price_from, price_to]).values('product')
+            product_variant_qs = ProductVariantPrice.objects.filter(price__range=[price_from, price_to]).values(
+                'product')
             product_ids = []
             for variant_ids in product_variant_qs:
                 if not variant_ids["product"] in product_ids:
@@ -44,8 +151,8 @@ class ProductListView(generic.ListView):
         # filter with color
         if color:
             product_variant_qs = ProductVariantPrice.objects.filter(
-                Q(product_variant_one__variant_title=color)|
-                Q(product_variant_two__variant_title=color)|
+                Q(product_variant_one__variant_title=color) |
+                Q(product_variant_two__variant_title=color) |
                 Q(product_variant_three__variant_title=color)
             ).values(
                 'product')
@@ -100,4 +207,4 @@ class ProductListView(generic.ListView):
         end_index = start_index + paginator.per_page - 1
         if end_index > paginator.count:
             end_index = paginator.count
-        return f"Showing { start_index } to { end_index } out of {paginator.count }"
+        return f"Showing {start_index} to {end_index} out of {paginator.count}"
