@@ -129,11 +129,11 @@ class ProductListView(generic.ListView):
     def get_queryset(self):
         queryset = Product.objects.all()
         # Retrieve filter parameters from the request
-        title = self.request.GET.get('title')
-        price_from = self.request.GET.get('price_from')
-        price_to = self.request.GET.get('price_to')
-        color = self.request.GET.get('color')
-        date = self.request.GET.get('date')
+        title = self.request.GET.get('title', None)
+        price_from = self.request.GET.get('price_from', None)
+        price_to = self.request.GET.get('price_to', None)
+        variant = self.request.GET.get('variant', None)
+        date = self.request.GET.get('date', None)
         # Apply filters to the queryset
         if title:
             queryset = queryset.filter(title__icontains=title)
@@ -149,11 +149,11 @@ class ProductListView(generic.ListView):
             queryset = queryset.filter(id__in=product_ids)
 
         # filter with color
-        if color:
+        if variant:
             product_variant_qs = ProductVariantPrice.objects.filter(
-                Q(product_variant_one__variant_title=color) |
-                Q(product_variant_two__variant_title=color) |
-                Q(product_variant_three__variant_title=color)
+                Q(product_variant_one__variant_title=variant) |
+                Q(product_variant_two__variant_title=variant) |
+                Q(product_variant_three__variant_title=variant)
             ).values(
                 'product')
             product_ids = []
@@ -169,7 +169,7 @@ class ProductListView(generic.ListView):
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(**kwargs)
         product_list_data = []
-
+        variant_qs = ProductVariant.objects.all().values("variant_title").distinct()
         for product in context["product_list"]:
             product_variant_qs = ProductVariantPrice.objects.filter(product=product)
             variant_list = []
@@ -197,6 +197,7 @@ class ProductListView(generic.ListView):
         paginator = Paginator(context["product_list"], self.paginate_by)
         page_number = self.request.GET.get('page')
         page_obj = paginator.get_page(page_number)
+        context["variant_qs"] = variant_qs
         context["products"] = page_obj
         context["product_data"] = product_list_data
         context["pagination_details"] = self.get_pagination_details(page_obj, paginator)

@@ -18,6 +18,9 @@
                 <div class="col-md-2">
                     <select name="variant" id="" class="form-control">
                         <option selected disabled>--Select A Variant--</option>
+                        {% for variant in variant_qs %}
+                        <option value="{{variant.variant_title}}">{{variant.variant_title}}</option>
+                        {% endfor %}
 
                     </select>
                 </div>
@@ -88,7 +91,7 @@
                             </td>
                             <td>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="" class="btn btn-success">Edit</a>
+                                    <a href="/product/update/{{product.product_id}}/" class="btn btn-success">Edit</a>
                                 </div>
                             </td>
                         </tr>
